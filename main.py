@@ -71,13 +71,10 @@ def main():
         help_command=None
     )
     
-    # Initialisation de la session de jeu
     game_session = GameSession()
     
-    # Initialisation des repositories
     player_repository = PlayerRepository(DATA_DIR)
     
-    # Préparation des constantes pour les services
     constants = {
         'LEVEL_THRESHOLDS': LEVEL_THRESHOLDS,
         'RANKS': RANKS,
@@ -89,19 +86,16 @@ def main():
         'TIME_BONUS_THRESHOLDS': TIME_BONUS_THRESHOLDS,
         'CLICK_BONUS_THRESHOLDS': CLICK_BONUS_THRESHOLDS
     }
-    
-    # Initialisation des services
+
     player_service = PlayerService(player_repository, constants)
     stats_service = StatsService(constants)
     game_service = GameService(player_service, stats_service)
     wikipedia_service = WikipediaService(WIKI_LANG)
-    
-    # Initialisation des utilitaires
+
     formatters = Formatters()
     calculators = Calculators()
     validators = Validators()
-    
-    # Initialisation de l'UI
+
     embed_creator = EmbedCreator()
     
     # Configuration des événements
