@@ -9,10 +9,10 @@ Point d'entrée principal
 import discord
 import wikipedia
 from discord.ext import commands
-from pathlib import Path
+
 
 # Imports de configuration
-from config.settings import TOKEN, DATA_DIR, WIKI_LANG, COMMAND_PREFIX, BOT_DESCRIPTION, BOT_ACTIVITY
+from config.settings import TOKEN, DATA_DIR, WIKI_LANG, BOT_DESCRIPTION, BOT_ACTIVITY
 from config.constants import (
     LEVEL_THRESHOLDS, RANKS, ACHIEVEMENTS, BASE_POINTS, BASE_XP_WIN, 
     BASE_XP_LOSE, MIN_POINTS, TIME_BONUS_THRESHOLDS, CLICK_BONUS_THRESHOLDS
@@ -64,8 +64,9 @@ def main():
     intents.guilds = True
     intents.message_content = True
     
+    # Utiliser Bot au lieu de commands.Bot pour les slash commands
     bot = commands.Bot(
-        command_prefix=COMMAND_PREFIX,
+        command_prefix="%",
         description=BOT_DESCRIPTION,
         intents=intents,
         help_command=None
@@ -103,15 +104,17 @@ def main():
     async def on_ready():
         await bot.change_presence(activity=discord.Game(BOT_ACTIVITY))
         await on_ready_handler(bot)
+        # Synchroniser les slash commands avec Discord
+        try:
+            synced = await bot.tree.sync()
+            print(f"✅ {len(synced)} slash command(s) synchronisée(s)")
+        except Exception as e:
+            print(f"❌ Erreur lors de la synchronisation: {e}")
     
     @bot.event
     async def on_reaction_add(reaction, user):
         # Récupérer la commande way
-        way_cmd = None
-        for cmd in bot.commands:
-            if cmd.name == 'way':
-                way_cmd = cmd
-                break
+        way_cmd = bot.tree.get_command('way')
         
         await on_reaction_add_handler(
             reaction, user, bot, game_session, 
@@ -122,7 +125,7 @@ def main():
     async def on_voice_state_update(member, before, after):
         await on_voice_state_update_handler(member, before, after, game_session, bot)
     
-    # Configuration des commandes
+    # Configuration des commandes (slash commands)
     setup_game_commands(
         bot, game_session, player_service, game_service, 
         wikipedia_service, embed_creator, formatters, validators

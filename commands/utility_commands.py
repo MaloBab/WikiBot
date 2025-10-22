@@ -2,42 +2,38 @@
 # -*- coding: utf-8 -*-
 
 """
-Commandes utilitaires
+Commandes utilitaires (Slash Commands)
 """
 
 import discord
 import asyncio
+from discord import app_commands
 from discord.ext import commands
 
 
 def setup_utility_commands(bot, game_session, wikipedia_service, embed_creator, formatters):
-    """Configure les commandes utilitaires"""
+    """Configure les commandes utilitaires en slash commands"""
     
-    @bot.command(name='sommaire')
-    async def sommaire(ctx, *, args):
+    @bot.tree.command(name='sommaire', description='Envoie le sommaire d\'un article en MP')
+    @app_commands.describe(
+        article='Nom de l\'article Wikipédia',
+        phrases='Nombre de phrases à afficher (défaut: 2)'
+    )
+    async def sommaire(interaction: discord.Interaction, article: str, phrases: int = 2):
         """Envoie le sommaire d'un article en MP"""
         
-        # Séparer les arguments
-        parts = args.rsplit(maxsplit=1)
-        
-        # Vérifier si le dernier argument est un nombre
-        if len(parts) == 2 and parts[1].isdigit():
-            article = parts[0]
-            nb_phrases = int(parts[1])
-        else:
-            article = args
-            nb_phrases = 2
+        await interaction.response.defer(ephemeral=True)
         
         try:
-            channel = await ctx.author.create_dm()
-            searching_msg = await channel.send("🔍 Recherche en cours...")
+            channel = await interaction.user.create_dm()
             
-            result = wikipedia_service.get_summary(article, nb_phrases)
+            result = wikipedia_service.get_summary(article, phrases)
             
             if result is None:
-                await channel.send(f"❌ Aucun résultat pour **{article}**")
-                await searching_msg.delete()
-                await ctx.message.delete()
+                await interaction.followup.send(
+                    f"❌ Aucun résultat pour **{article}**",
+                    ephemeral=True
+                )
                 return
             
             article_name, summary = result
@@ -50,70 +46,79 @@ def setup_utility_commands(bot, game_session, wikipedia_service, embed_creator, 
             embed.set_footer(text="Wikipédia Challenge")
             
             await channel.send(embed=embed)
-            await searching_msg.delete()
-            await ctx.message.delete()
+            await interaction.followup.send(
+                "✅ Sommaire envoyé en message privé !",
+                ephemeral=True
+            )
             
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Je ne peux pas vous envoyer de message privé. Vérifiez vos paramètres de confidentialité.",
+                ephemeral=True
+            )
         except Exception as e:
-            await channel.send(f"❌ Erreur : {str(e)}")
+            await interaction.followup.send(
+                f"❌ Erreur : {str(e)}",
+                ephemeral=True
+            )
     
-    @bot.command(name='guide')
-    async def guide(ctx):
+    @bot.tree.command(name='guide', description='Affiche le guide complet du bot')
+    async def guide(interaction: discord.Interaction):
         """Affiche le guide complet du bot"""
         
         embed = embed_creator.create_guide_embed()
         
-        await ctx.send(embed=embed)
-        await ctx.message.delete()
+        await interaction.response.send_message(embed=embed)
     
-    @bot.command(name='clear')
-    async def clear(ctx, nombre: int = 1):
+    @bot.tree.command(name='clear', description='Supprime des messages du salon')
+    @app_commands.describe(nombre='Nombre de messages à supprimer')
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def clear(interaction: discord.Interaction, nombre: int = 1):
         """Supprime des messages du salon"""
         try:
-            deleted = await ctx.channel.purge(limit=nombre + 1)
-            msg = await ctx.send(f"✅ {len(deleted) - 1} message(s) supprimé(s)")
-            await asyncio.sleep(3)
-            await msg.delete()
+            await interaction.response.defer(ephemeral=True)
+            deleted = await interaction.channel.purge(limit=nombre)
+            await interaction.followup.send(
+                f"✅ {len(deleted)} message(s) supprimé(s)",
+                ephemeral=True
+            )
         except discord.Forbidden:
-            await ctx.send("❌ Permissions insuffisantes !")
+            await interaction.followup.send(
+                "❌ Permissions insuffisantes !",
+                ephemeral=True
+            )
         except discord.HTTPException:
-            await ctx.send("❌ Impossible de supprimer tous les messages")
+            await interaction.followup.send(
+                "❌ Impossible de supprimer tous les messages",
+                ephemeral=True
+            )
     
-    @bot.command(name='status')
-    async def status(ctx):
+    @bot.tree.command(name='status', description='Affiche le statut actuel de la partie')
+    async def status(interaction: discord.Interaction):
         """Affiche le statut actuel de la partie"""
         
         embed = embed_creator.create_status_embed(game_session, formatters, bot)
         
-        await ctx.send(embed=embed)
-        await ctx.message.delete()
+        await interaction.response.send_message(embed=embed)
     
-    @bot.command(name='disconnect')
-    async def disconnect(ctx):
-        """Déconnecte le bot"""
-        await ctx.send("👋 **WikiBot** se déconnecte...")
-        await ctx.message.delete()
-        await bot.close()
-    
-    @bot.command(name='leave')
-    async def leave(ctx):
+    @bot.tree.command(name='leave', description='Permet de quitter la partie classée en cours')
+    async def leave(interaction: discord.Interaction):
         """Permet à un joueur de quitter la partie classée en cours"""
         
         if not game_session.enabled:
             embed = embed_creator.create_error_embed(
                 "Aucune partie classée n'est active."
             )
-            await ctx.send(embed=embed, delete_after=10)
-            await ctx.message.delete(delay=10)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
-        player_name = ctx.author.name
+        player_name = interaction.user.name
         
         if player_name not in game_session.members:
             embed = embed_creator.create_error_embed(
                 "Vous ne faites pas partie de la partie en cours."
             )
-            await ctx.send(embed=embed, delete_after=10)
-            await ctx.message.delete(delay=10)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
         game_session.members.remove(player_name)
@@ -121,84 +126,90 @@ def setup_utility_commands(bot, game_session, wikipedia_service, embed_creator, 
         if game_session.winner and game_session.winner.name == player_name:
             game_session.winner = None
         
-        await ctx.send(
-            f"👋 **{ctx.author.display_name}** a quitté la partie classée.\n"
+        await interaction.response.send_message(
+            f"👋 **{interaction.user.display_name}** a quitté la partie classée.\n"
             f"Joueurs restants : {formatters.format_player_list(game_session.members) if game_session.members else '**Aucun**'}"
         )
-        await ctx.message.delete()
         
         # Si plus personne dans la partie, la dissoudre
         if not game_session.members:
-            await ctx.send("🔴 **Partie dissoute** - Aucun joueur restant.")
+            await interaction.followup.send("🔴 **Partie dissoute** - Aucun joueur restant.")
             game_session.reset()
     
-    @bot.command(name='disband')
-    async def disband(ctx):
+    @bot.tree.command(name='disband', description='Dissout la partie classée en cours')
+    async def disband(interaction: discord.Interaction):
         """Dissout la partie classée en cours"""
         
         if not game_session.enabled:
             embed = embed_creator.create_error_embed(
                 "Aucune partie classée n'est active."
             )
-            await ctx.send(embed=embed, delete_after=10)
-            await ctx.message.delete(delay=10)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
-        player_name = ctx.author.name
+        player_name = interaction.user.name
         
         if player_name not in game_session.members:
             embed = embed_creator.create_error_embed(
                 "Vous ne faites pas partie de la partie en cours."
             )
-            await ctx.send(embed=embed, delete_after=10)
-            await ctx.message.delete(delay=10)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
-        # Demander confirmation
+        # Créer une vue avec des boutons pour confirmation
+        class ConfirmView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=30.0)
+                self.value = None
+            
+            @discord.ui.button(label='Confirmer', style=discord.ButtonStyle.danger, emoji='✅')
+            async def confirm(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = True
+                self.stop()
+                await button_interaction.response.defer()
+            
+            @discord.ui.button(label='Annuler', style=discord.ButtonStyle.secondary, emoji='❌')
+            async def cancel(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                self.value = False
+                self.stop()
+                await button_interaction.response.defer()
+        
         embed = embed_creator.create_warning_embed(
             "Dissoudre la partie",
-            f"**{ctx.author.display_name}**, voulez-vous vraiment dissoudre la partie classée ?\n"
+            f"**{interaction.user.display_name}**, voulez-vous vraiment dissoudre la partie classée ?\n"
             f"Tous les joueurs seront retirés : {formatters.format_player_list(game_session.members)}"
         )
-        confirm_msg = await ctx.send(embed=embed)
-        await confirm_msg.add_reaction('✅')
-        await confirm_msg.add_reaction('❌')
         
-        def check(reaction, user):
-            return (user == ctx.author and 
-                   str(reaction.emoji) in ['✅', '❌'] and 
-                   reaction.message.id == confirm_msg.id)
+        view = ConfirmView()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await view.wait()
         
-        try:
-            reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
-            
-            if str(reaction.emoji) == '❌':
-                embed = embed_creator.create_error_embed("Dissolution annulée.")
-                await confirm_msg.edit(embed=embed)
-                await confirm_msg.delete(delay=5)
-                await ctx.message.delete()
-                return
-            
-            # Dissoudre la partie
-            channel_name = "le salon"
-            if game_session.channel_id:
-                channel = bot.get_channel(game_session.channel_id)
-                if channel:
-                    channel_name = f"**{channel.name}**"
-            
-            await confirm_msg.delete()
-            await ctx.send(
-                f"💥 **Partie dissoute** par {ctx.author.mention}\n"
-                f"La partie classée dans {channel_name} a été terminée."
-            )
-            await ctx.message.delete()
-            
-            game_session.reset()
-            
-        except asyncio.TimeoutError:
-            embed = embed_creator.create_error_embed("⏱️ Temps écoulé - Dissolution annulée")
-            await confirm_msg.edit(embed=embed)
-            await confirm_msg.delete(delay=5)
-            await ctx.message.delete()
+        if not view.value:
+            embed = embed_creator.create_error_embed("Dissolution annulée.")
+            await interaction.edit_original_response(embed=embed, view=None)
+            return
+        
+        # Dissoudre la partie
+        channel_name = "le salon"
+        if game_session.channel_id:
+            channel = bot.get_channel(game_session.channel_id)
+            if channel:
+                channel_name = f"**{channel.name}**"
+        
+        await interaction.edit_original_response(
+            content=f"💥 **Partie dissoute** par {interaction.user.mention}\n"
+                   f"La partie classée dans {channel_name} a été terminée.",
+            embed=None,
+            view=None
+        )
+        
+        game_session.reset()
     
-    return sommaire, guide, clear, status, disconnect, leave, disband
+    @bot.tree.command(name='disconnect', description='Déconnecte le bot (admin seulement)')
+    @app_commands.checks.has_permissions(administrator=True)
+    async def disconnect(interaction: discord.Interaction):
+        """Déconnecte le bot"""
+        await interaction.response.send_message("👋 **WikiBot** se déconnecte...")
+        await bot.close()
+    
+    return sommaire, guide, clear, status, leave, disband, disconnect

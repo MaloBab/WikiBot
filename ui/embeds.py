@@ -469,18 +469,19 @@ class EmbedCreator:
         # Parties
         embed.add_field(
             name="🎮 JOUER",
-            value="**%partie** - Créer une partie classée\n"
-                  "**%way** - Générer un parcours\n"
-                  "**%win <clics>** - Enregistrer votre victoire",
+            value="**/partie** - Créer une partie classée\n"
+                "**/way** - Générer un parcours\n"
+                "**/win** - Enregistrer votre victoire",
             inline=True
         )
         
         # Stats
         embed.add_field(
             name="📊 STATS",
-            value="**%stats [joueur]** - Voir les statistiques\n"
-                  "**%achievements** - Vos succès\n"
-                  "**%scoreboard** - Top 10\n",
+            value="**/stats** - Voir les statistiques\n"
+                "**/achievements** - Vos succès\n"
+                "**/scoreboard** - Top 10\n"
+                "**/leaderboard** - Classements variés",
             inline=True
         )
         
@@ -488,10 +489,10 @@ class EmbedCreator:
         embed.add_field(
             name="⭐ SYSTÈME DE PROGRESSION",
             value="🥉 **Bronze** (Niv. 1-4)\n"
-                  "🥈 **Argent** (Niv. 5-9)\n"
-                  "🥇 **Or** (Niv. 10-14)\n"
-                  "💍 **Platine** (Niv. 15-17)\n"
-                  "💎 **Diamant** (Niv. 18-20)",
+                "🥈 **Argent** (Niv. 5-9)\n"
+                "🥇 **Or** (Niv. 10-14)\n"
+                "💍 **Platine** (Niv. 15-17)\n"
+                "💎 **Diamant** (Niv. 18-20)",
             inline=False
         )
         
@@ -499,23 +500,23 @@ class EmbedCreator:
         embed.add_field(
             name="🏆 SUCCÈS À DÉBLOQUER",
             value="⚡ **Éclair** - Gagner en - 30s\n"
-                  "🎯 **Minimaliste** - Gagner en -3 clics\n"
-                  "🏃 **Marathon** - 10 parties d'affilée\n"
-                  "🗺️ **Explorateur** - 100 articles visités\n"
-                  "👑 **Perfectionniste** - 10 wins consécutives\n"
-                  "*Et bien d'autres...*",
+                "🎯 **Minimaliste** - Gagner en -3 clics\n"
+                "🏃 **Marathon** - 10 parties d'affilée\n"
+                "🗺️ **Explorateur** - 100 articles visités\n"
+                "👑 **Perfectionniste** - 10 wins consécutives\n"
+                "*Et bien d'autres...*",
             inline=False
         )
         
         # Utilitaires
         embed.add_field(
             name="🔧 UTILITAIRES",
-            value="**%sommaire <article>** - Résumé en MP\n"
-                  "**%clear [n]** - Nettoyer le chat\n"
-                  "**%status** - État de la partie\n"
-                  "**%leave** - Quitter la partie\n"
-                  "**%disband** - Dissoudre la partie\n"
-                  "**%disconnect** - Éteindre le bot",
+            value="**/sommaire** - Résumé en MP\n"
+                "**/clear** - Nettoyer le chat\n"
+                "**/status** - État de la partie\n"
+                "**/leave** - Quitter la partie\n"
+                "**/disband** - Dissoudre la partie\n"
+                "**/disconnect** - Éteindre le bot",
             inline=False
         )
         

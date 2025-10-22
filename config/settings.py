@@ -21,6 +21,5 @@ WIKI_RANDOM_PAGES = 10
 MAX_GENERATION_ATTEMPTS = 10
 
 # Configuration Discord
-COMMAND_PREFIX = '%'
-BOT_DESCRIPTION = "Wikipédia Challenge Manager avec système de progression"
-BOT_ACTIVITY = f'{COMMAND_PREFIX}guide'
+BOT_DESCRIPTION = "Wikipédia Challenge - Un bot Discord pour jouer au Wikipédia Challenge"
+BOT_ACTIVITY = f'/guide'

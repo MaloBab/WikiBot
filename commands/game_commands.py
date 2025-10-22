@@ -1,41 +1,33 @@
-#! /usr/bin/python
-# -*- coding: utf-8 -*-
-
-"""
-Commandes de jeu
-"""
-
 import discord
 import asyncio
+from discord import app_commands
 from discord.ext import commands
 
 
 def setup_game_commands(bot, game_session, player_service, game_service, 
                        wikipedia_service, embed_creator, formatters, validators):
-    """Configure les commandes de jeu"""
+    """Configure les commandes de jeu en slash commands"""
     
-    @bot.command(name='partie')
-    async def partie(ctx):
+    @bot.tree.command(name='partie', description='Démarre une partie classée')
+    async def partie(interaction: discord.Interaction):
         """Démarre une partie classée"""
         
-        if not validators.is_in_voice_channel(ctx.author):
+        if not validators.is_in_voice_channel(interaction.user):
             embed = embed_creator.create_error_embed(
                 "Vous devez être connecté à un salon vocal !"
             )
-            await ctx.send(embed=embed, delete_after=10)
-            await ctx.message.delete(delay=10)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         
         try:
-            channel = ctx.author.voice.channel
+            channel = interaction.user.voice.channel
             human_members = validators.get_human_members(channel)
             
             if not human_members:
                 embed = embed_creator.create_error_embed(
                     "Aucun joueur humain détecté dans le salon vocal."
                 )
-                await ctx.send(embed=embed, delete_after=10)
-                await ctx.message.delete(delay=10)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Si une partie est déjà active dans ce salon
@@ -44,40 +36,44 @@ def setup_game_commands(bot, game_session, player_service, game_service,
                     "Partie déjà active",
                     f"Une partie classée est déjà en cours dans **{channel.name}**"
                 )
-                await ctx.send(embed=embed, delete_after=10)
-                await ctx.message.delete(delay=10)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Confirmation pour partie solo
             if len(human_members) < 2:
                 embed = embed_creator.create_warning_embed(
                     "Partie solo",
-                    f"Vous êtes seul dans **{channel.name}**.\nConfirmer ?"
+                    f"Vous êtes seul dans **{channel.name}**.\nVoulez-vous continuer ?"
                 )
-                warning_msg = await ctx.send(embed=embed)
-                await warning_msg.add_reaction('✅')
-                await warning_msg.add_reaction('❌')
                 
-                def check(reaction, user):
-                    return (user == ctx.author and 
-                           str(reaction.emoji) in ['✅', '❌'] and 
-                           reaction.message.id == warning_msg.id)
+                # Créer une vue avec des boutons
+                class ConfirmView(discord.ui.View):
+                    def __init__(self):
+                        super().__init__(timeout=30.0)
+                        self.value = None
+                    
+                    @discord.ui.button(label='Confirmer', style=discord.ButtonStyle.success, emoji='✅')
+                    async def confirm(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        self.value = True
+                        self.stop()
+                        await button_interaction.response.defer()
+                    
+                    @discord.ui.button(label='Annuler', style=discord.ButtonStyle.danger, emoji='❌')
+                    async def cancel(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                        self.value = False
+                        self.stop()
+                        await button_interaction.response.defer()
                 
-                try:
-                    reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
-                    if str(reaction.emoji) == '❌':
-                        embed = embed_creator.create_error_embed("🚫 Annulé")
-                        await warning_msg.edit(embed=embed)
-                        await warning_msg.delete(delay=5)
-                        await ctx.message.delete()
-                        return
-                    await warning_msg.delete()
-                except asyncio.TimeoutError:
-                    embed = embed_creator.create_error_embed("⏱️ Temps écoulé")
-                    await warning_msg.edit(embed=embed)
-                    await warning_msg.delete(delay=5)
-                    await ctx.message.delete()
+                view = ConfirmView()
+                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+                await view.wait()
+                
+                if not view.value:
+                    embed = embed_creator.create_error_embed("🚫 Annulé")
+                    await interaction.edit_original_response(embed=embed, view=None)
                     return
+            else:
+                await interaction.response.defer()
             
             # Initialiser la session
             from datetime import datetime
@@ -99,36 +95,39 @@ def setup_game_commands(bot, game_session, player_service, game_service,
                 channel.name, 
                 game_session.members, 
                 new_players, 
-                ctx.author,
+                interaction.user,
                 formatters
             )
             
-            await ctx.send(embed=embed)
-            await ctx.message.delete()
+            if len(human_members) < 2:
+                await interaction.edit_original_response(embed=embed, view=None)
+            else:
+                await interaction.followup.send(embed=embed)
             
         except Exception as e:
             embed = embed_creator.create_error_embed(f"```{str(e)}```")
-            await ctx.send(embed=embed, delete_after=15)
-            await ctx.message.delete()
+            if interaction.response.is_done():
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
     
-    @bot.command(name='way')
-    async def way(ctx):
+    @bot.tree.command(name='way', description='Génère un parcours Wikipédia aléatoire')
+    async def way(interaction: discord.Interaction):
         """Génère un parcours Wikipédia aléatoire"""
         
         if not game_session.enabled:
-            annonce = await ctx.send(
+            await interaction.response.send_message(
                 "⚠️ **Partie non classée**\n"
                 "🔄 Génération du parcours..."
             )
         else:
-            annonce = await ctx.send("🔄 Génération du parcours...")
+            await interaction.response.send_message("🔄 Génération du parcours...")
         
         result = wikipedia_service.generate_path(max_attempts=10)
         
         if result is None:
-            await annonce.delete()
-            await ctx.send(
-                "🔴 Impossible de générer un parcours après 10 tentatives."
+            await interaction.edit_original_response(
+                content="🔴 Impossible de générer un parcours après 10 tentatives."
             )
             return
         
@@ -143,31 +142,40 @@ def setup_game_commands(bot, game_session, player_service, game_service,
             attempt
         )
         
-        await annonce.delete()
-        
-        if ctx.message is not None:
-            await ctx.message.delete()
-        
-        msg = await ctx.send(embed=embed)
+        msg = await interaction.edit_original_response(content=None, embed=embed)
         
         await msg.add_reaction("🔄")
         await msg.add_reaction("✅")
     
-    @bot.command(name='win')
-    async def win(ctx, clicks: int):
+    @bot.tree.command(name='win', description='Enregistre votre victoire')
+    @app_commands.describe(clicks='Nombre de clics effectués')
+    async def win(interaction: discord.Interaction, clicks: int):
         """Enregistre la victoire avec calcul de points et XP"""
         
         if not game_session.enabled:
-            await ctx.send("⚠️ Partie non classée - score non enregistrable !")
-            await ctx.message.delete()
+            await interaction.response.send_message(
+                "⚠️ Partie non classée - score non enregistrable !",
+                ephemeral=True
+            )
             return
         
-        if ctx.author != game_session.winner:
-            await ctx.send(f"❌ {ctx.author.mention} n'est pas le gagnant !")
-            await ctx.message.delete()
+        if interaction.user != game_session.winner:
+            await interaction.response.send_message(
+                f"❌ {interaction.user.mention} n'est pas le gagnant !",
+                ephemeral=True
+            )
+            return
+        
+        if clicks <= 0:
+            await interaction.response.send_message(
+                "❌ Le nombre de clics doit être un nombre positif !",
+                ephemeral=True
+            )
             return
         
         try:
+            await interaction.response.defer()
+            
             winner_name = game_session.winner.name
             temps = float(game_session.timer.duration)
             
@@ -195,16 +203,11 @@ def setup_game_commands(bot, game_session, player_service, game_service,
                 formatters
             )
             
-            await ctx.send(embed=embed)
-            await ctx.message.delete()
+            await interaction.followup.send(embed=embed)
             
             game_session.reset_round()
             
-        except ValueError:
-            await ctx.send("❌ Le nombre de clics doit être un nombre entier !")
-            await ctx.message.delete()
         except Exception as e:
-            await ctx.send(f"🔴 Erreur : {str(e)}")
-            await ctx.message.delete()
+            await interaction.followup.send(f"🔴 Erreur : {str(e)}", ephemeral=True)
     
     return partie, way, win
