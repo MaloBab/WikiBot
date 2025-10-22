@@ -181,7 +181,6 @@ def setup_game_commands(bot, game_session, player_service, game_service,
                 game_session.members
             )
             
-            # Ajouter les infos de temps et clics pour l'embed
             result['temps'] = temps
             result['clicks'] = clicks
             
@@ -199,7 +198,6 @@ def setup_game_commands(bot, game_session, player_service, game_service,
             await ctx.send(embed=embed)
             await ctx.message.delete()
             
-            # Réinitialiser SEULEMENT le chrono et le parcours, pas toute la session
             game_session.reset_round()
             
         except ValueError:

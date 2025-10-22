@@ -68,10 +68,11 @@ class EmbedCreator:
         
         embed.add_field(
             name="📋 Instructions",
-            value="• Utilisez `%way` pour générer un parcours\n"
+            value=                  "• Utilisez `%way` pour générer un parcours\n"
                   "• Vos performances seront enregistrées\n"
                   "• La partie reste active tant que vous êtes dans le salon\n"
-                  "• Utilisez `%leave` pour quitter la partie classée",
+                  "• Utilisez `%leave` pour quitter la partie classée\n"
+                  "• Utilisez `%disband` pour dissoudre la partie",
             inline=False
         )
         
@@ -511,6 +512,9 @@ class EmbedCreator:
             name="🔧 UTILITAIRES",
             value="**%sommaire <article>** - Résumé en MP\n"
                   "**%clear [n]** - Nettoyer le chat\n"
+                  "**%status** - État de la partie\n"
+                  "**%leave** - Quitter la partie\n"
+                  "**%disband** - Dissoudre la partie\n"
                   "**%disconnect** - Éteindre le bot",
             inline=False
         )

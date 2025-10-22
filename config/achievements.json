@@ -1,0 +1,62 @@
+{
+  "eclair": {
+    "name": "⚡ Éclair",
+    "description": "Gagner en moins de 30 secondes",
+    "xp": 50,
+    "condition": {"type": "lt", "field": "best_time", "value": 30}
+  },
+  "minimaliste": {
+    "name": "🎯 Minimaliste",
+    "description": "Gagner en moins de 3 clics",
+    "xp": 100,
+    "condition": {"type": "le", "field": "best_clicks", "value": 3}
+  },
+  "marathon": {
+    "name": "🏃 Marathon",
+    "description": "Jouer 10 parties d'affilée",
+    "xp": 75,
+    "condition": {"type": "ge", "field": "current_streak", "value": 10}
+  },
+  "explorateur": {
+    "name": "🗺️ Explorateur",
+    "description": "Visiter 100 articles uniques",
+    "xp": 150,
+    "condition": {"type": "len_ge", "field": "articles_visited", "value": 100}
+  },
+  "perfectionniste": {
+    "name": "👑 Perfectionniste",
+    "description": "10 victoires consécutives",
+    "xp": 200,
+    "condition": {"type": "ge", "field": "win_streak", "value": 10}
+  },
+  "debutant": {
+    "name": "🌱 Débutant",
+    "description": "Jouer votre première partie",
+    "xp": 10,
+    "condition": {"type": "ge", "field": "parties_jouees", "value": 1}
+  },
+  "veterane": {
+    "name": "🎖️ Vétéran",
+    "description": "Jouer 50 parties",
+    "xp": 100,
+    "condition": {"type": "ge", "field": "parties_jouees", "value": 50}
+  },
+  "champion": {
+    "name": "🏆 Champion",
+    "description": "Gagner 25 parties",
+    "xp": 150,
+    "condition": {"type": "ge", "field": "parties_gagnees", "value": 25}
+  },
+  "rapide": {
+    "name": "💨 Rapide",
+    "description": "Temps moyen inférieur à 60 secondes",
+    "xp": 75,
+    "condition": {"type": "lt", "field": "temps_moyen", "value": 60}
+  },
+  "efficace": {
+    "name": "🎲 Efficace",
+    "description": "Moyenne de clics inférieure à 5",
+    "xp": 75,
+    "condition": {"type": "lt", "field": "moyenne_clics", "value": 5}
+  }
+}

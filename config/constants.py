@@ -6,6 +6,8 @@ Constantes et configuration du WikiBot
 """
 
 from pathlib import Path
+import json
+from typing import Any, Callable, Dict
 
 # Paliers de niveaux (XP requis)
 LEVEL_THRESHOLDS = {
@@ -26,84 +28,78 @@ RANKS = {
 
 # Définition des achievements
 ACHIEVEMENTS = {
-    "eclair": {
-        "name": "⚡ Éclair",
-        "description": "Gagner en moins de 30 secondes",
-        "xp": 50,
-        "check": lambda stats: stats.get("best_time", float('inf')) < 30
-    },
-    "minimaliste": {
-        "name": "🎯 Minimaliste",
-        "description": "Gagner en moins de 3 clics",
-        "xp": 100,
-        "check": lambda stats: stats.get("best_clicks", float('inf')) <= 3
-    },
-    "marathon": {
-        "name": "🏃 Marathon",
-        "description": "Jouer 10 parties d'affilée",
-        "xp": 75,
-        "check": lambda stats: stats.get("current_streak", 0) >= 10
-    },
-    "explorateur": {
-        "name": "🗺️ Explorateur",
-        "description": "Visiter 100 articles uniques",
-        "xp": 150,
-        "check": lambda stats: len(stats.get("articles_visited", [])) >= 100
-    },
-    "perfectionniste": {
-        "name": "👑 Perfectionniste",
-        "description": "10 victoires consécutives",
-        "xp": 200,
-        "check": lambda stats: stats.get("win_streak", 0) >= 10
-    },
-    "debutant": {
-        "name": "🌱 Débutant",
-        "description": "Jouer votre première partie",
-        "xp": 10,
-        "check": lambda stats: stats.get("parties_jouees", 0) >= 1
-    },
-    "veterane": {
-        "name": "🎖️ Vétéran",
-        "description": "Jouer 50 parties",
-        "xp": 100,
-        "check": lambda stats: stats.get("parties_jouees", 0) >= 50
-    },
-    "champion": {
-        "name": "🏆 Champion",
-        "description": "Gagner 25 parties",
-        "xp": 150,
-        "check": lambda stats: stats.get("parties_gagnees", 0) >= 25
-    },
-    "rapide": {
-        "name": "💨 Rapide",
-        "description": "Temps moyen inférieur à 60 secondes",
-        "xp": 75,
-        "check": lambda stats: stats.get("temps_moyen", float('inf')) < 60
-    },
-    "efficace": {
-        "name": "🎲 Efficace",
-        "description": "Moyenne de clics inférieure à 5",
-        "xp": 75,
-        "check": lambda stats: stats.get("moyenne_clics", float('inf')) < 5
-    }
 }
 
+
+# Helper to build check functions from a condition spec defined in JSON.
+def _make_check(condition: Dict[str, Any]) -> Callable[[Dict[str, Any]], bool]:
+    """
+    Supported condition types:
+      - lt: field < value
+      - le: field <= value
+      - gt: field > value
+      - ge: field >= value
+      - eq: field == value
+      - len_ge: len(field) >= value (field expected to be iterable)
+    """
+    ctype = condition.get("type")
+    field = condition.get("field")
+    value = condition.get("value")
+
+    if ctype == "lt":
+        return lambda stats: stats.get(field, float('inf')) < value
+    if ctype == "le":
+        return lambda stats: stats.get(field, float('inf')) <= value
+    if ctype == "gt":
+        return lambda stats: stats.get(field, float('-inf')) > value
+    if ctype == "ge":
+        return lambda stats: stats.get(field, float('-inf')) >= value
+    if ctype == "eq":
+        return lambda stats: stats.get(field) == value
+    if ctype == "len_ge":
+        return lambda stats: len(stats.get(field, [])) >= value
+
+    # Unknown condition: always False and safe.
+    return lambda stats: False
+
+
+_ACH_FILE = Path(__file__).parent / "achievements.json"
+print(f"Loading achievements from {_ACH_FILE}")
+_loaded_achievements: Dict[str, Dict[str, Any]] = {}
+if _ACH_FILE.exists():
+    try:
+        with _ACH_FILE.open("r", encoding="utf-8") as f:
+            _raw = json.load(f)
+            for key, data in _raw.items():
+                cond = data.pop("condition", None)
+                entry = dict(data)
+                entry["check"] = _make_check(cond) if cond else (lambda stats: False)
+                _loaded_achievements[key] = entry
+    except Exception:
+        _loaded_achievements = {}
+else:
+
+    _loaded_achievements = {}
+
+# Public achievements mapping used by the rest of the codebase.
+ACHIEVEMENTS = _loaded_achievements
+
 # Configuration des récompenses
-BASE_POINTS = 300
-BASE_XP_WIN = 20
-BASE_XP_LOSE = 5
+BASE_POINTS = 310
+BASE_XP_WIN = 25
+BASE_XP_LOSE = 15
 MIN_POINTS = 10
 
 # Bonus temporels
 TIME_BONUS_THRESHOLDS = {
-    30: 15,
-    60: 10,
-    120: 5
+    30: 30,
+    60: 20,
+    120: 10
 }
 
 # Bonus clics
 CLICK_BONUS_THRESHOLDS = {
-    3: 20,
-    5: 10,
-    10: 5
+    3: 40,
+    5: 20,
+    10: 10
 }

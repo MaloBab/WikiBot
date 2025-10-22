@@ -3,8 +3,8 @@ from discord.ext import commands
 
 def setup_stats_commands(bot, player_service, embed_creator, formatters):
     """Configure les commandes de statistiques"""
-    
-    @bot.command(name='stats')
+
+    @bot.command(name='stats', aliases=['statistiques','stat'])
     async def stats(ctx, user: str = None):
         """Affiche les statistiques détaillées d'un joueur"""
         
@@ -27,7 +27,7 @@ def setup_stats_commands(bot, player_service, embed_creator, formatters):
         await ctx.send(embed=embed)
         await ctx.message.delete()
     
-    @bot.command(name='achievements')
+    @bot.command(name='achievements', aliases=['succès', 'succes'])
     async def achievements(ctx, user: str = None):
         """Affiche les achievements d'un joueur"""
         
@@ -75,9 +75,14 @@ def setup_stats_commands(bot, player_service, embed_creator, formatters):
             sort_by = "winrate"
         elif category.lower() in ["xp", "experience"]:
             sort_by = "xp"
-        else:
+        elif category.lower() in ["point", "points"]:
             sort_by = "points"
-        
+        else:
+            await ctx.send("❌ Catégorie invalide ! Utilisez l'une des catégories suivantes : "
+                           "`points`, `level`, `winrate`, `xp`.")
+            await ctx.message.delete()
+            return
+
         players = player_service.get_all_players(sort_by=sort_by)
         
         if not players:

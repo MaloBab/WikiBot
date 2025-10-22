@@ -94,4 +94,111 @@ def setup_utility_commands(bot, game_session, wikipedia_service, embed_creator, 
         await ctx.message.delete()
         await bot.close()
     
-    return sommaire, guide, clear, status, disconnect
+    @bot.command(name='leave')
+    async def leave(ctx):
+        """Permet à un joueur de quitter la partie classée en cours"""
+        
+        if not game_session.enabled:
+            embed = embed_creator.create_error_embed(
+                "Aucune partie classée n'est active."
+            )
+            await ctx.send(embed=embed, delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        player_name = ctx.author.name
+        
+        if player_name not in game_session.members:
+            embed = embed_creator.create_error_embed(
+                "Vous ne faites pas partie de la partie en cours."
+            )
+            await ctx.send(embed=embed, delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        game_session.members.remove(player_name)
+
+        if game_session.winner and game_session.winner.name == player_name:
+            game_session.winner = None
+        
+        await ctx.send(
+            f"👋 **{ctx.author.display_name}** a quitté la partie classée.\n"
+            f"Joueurs restants : {formatters.format_player_list(game_session.members) if game_session.members else '**Aucun**'}"
+        )
+        await ctx.message.delete()
+        
+        # Si plus personne dans la partie, la dissoudre
+        if not game_session.members:
+            await ctx.send("🔴 **Partie dissoute** - Aucun joueur restant.")
+            game_session.reset()
+    
+    @bot.command(name='disband')
+    async def disband(ctx):
+        """Dissout la partie classée en cours"""
+        
+        if not game_session.enabled:
+            embed = embed_creator.create_error_embed(
+                "Aucune partie classée n'est active."
+            )
+            await ctx.send(embed=embed, delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        player_name = ctx.author.name
+        
+        if player_name not in game_session.members:
+            embed = embed_creator.create_error_embed(
+                "Vous ne faites pas partie de la partie en cours."
+            )
+            await ctx.send(embed=embed, delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        # Demander confirmation
+        embed = embed_creator.create_warning_embed(
+            "Dissoudre la partie",
+            f"**{ctx.author.display_name}**, voulez-vous vraiment dissoudre la partie classée ?\n"
+            f"Tous les joueurs seront retirés : {formatters.format_player_list(game_session.members)}"
+        )
+        confirm_msg = await ctx.send(embed=embed)
+        await confirm_msg.add_reaction('✅')
+        await confirm_msg.add_reaction('❌')
+        
+        def check(reaction, user):
+            return (user == ctx.author and 
+                   str(reaction.emoji) in ['✅', '❌'] and 
+                   reaction.message.id == confirm_msg.id)
+        
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
+            
+            if str(reaction.emoji) == '❌':
+                embed = embed_creator.create_error_embed("Dissolution annulée.")
+                await confirm_msg.edit(embed=embed)
+                await confirm_msg.delete(delay=5)
+                await ctx.message.delete()
+                return
+            
+            # Dissoudre la partie
+            channel_name = "le salon"
+            if game_session.channel_id:
+                channel = bot.get_channel(game_session.channel_id)
+                if channel:
+                    channel_name = f"**{channel.name}**"
+            
+            await confirm_msg.delete()
+            await ctx.send(
+                f"💥 **Partie dissoute** par {ctx.author.mention}\n"
+                f"La partie classée dans {channel_name} a été terminée."
+            )
+            await ctx.message.delete()
+            
+            game_session.reset()
+            
+        except asyncio.TimeoutError:
+            embed = embed_creator.create_error_embed("⏱️ Temps écoulé - Dissolution annulée")
+            await confirm_msg.edit(embed=embed)
+            await confirm_msg.delete(delay=5)
+            await ctx.message.delete()
+    
+    return sommaire, guide, clear, status, disconnect, leave, disband
